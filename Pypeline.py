@@ -16,9 +16,17 @@ from gui.TabPanels import ValveTabPanel as ValveTabPanel
 from gui.TabPanels import CompressorTabPanel as CompressorTabPanel
 from gui.TabPanels import RegulatorTabPanel as RegulatorTabPanel
 from gui.TabPanels import LossElementTabPanel as LossElementTabPanel
-import wx.lib.agw.gradientbutton as GB
 
-'''EXCEPTION TESTING'''
+from gui.popups import Display_Settings as DisplaySettings
+from gui.popups import Element_List as ElementList
+from gui.popups import Short_Cuts as ShortCuts
+from gui.popups import Simulation_Display as SimulationDisplay
+from gui.popups import Simulation_Settings as SimulationSettings
+from gui.popups import Unit_Settings as UnitSettings
+
+import wx.lib.agw.gradientbutton as GB
+from wx.lib.wordwrap import wordwrap
+
 
 try:
     dirName = os.path.dirname(os.path.abspath(__file__))
@@ -65,6 +73,14 @@ ID_MOVE = ID_NODES + 12
 ID_DELETE = ID_NODES + 13
 ID_UNDO = ID_NODES + 14
 ID_REDO = ID_NODES + 15
+ID_ABOUT = ID_NODES + 16
+ID_ELEMENT_DISPLAY_SETTINGS = ID_NODES + 17
+ID_ELEMENT_LIST = ID_NODES + 18
+ID_SHORT_CUT_SETTINGS = ID_NODES + 19
+ID_SIMULATION_DISPLAY = ID_NODES + 20
+ID_SIMULATION_SETTINGS = ID_NODES + 21
+ID_UNIT_SETTINGS = ID_NODES + 22
+
 ################################################################################################################################################
 ################################################################################################################################################
 ################################################################################################################################################
@@ -306,10 +322,16 @@ class RibbonFrame(wx.Frame):
 
         fileMenu.AppendItem(quit_menu_item)
 
+        editMenu = wx.Menu()
+        viewMenu = wx.Menu()
+        formatMenu = wx.Menu()
 
         self.Bind(wx.EVT_MENU, self.OnQuit, quit_menu_item)
 
-        menubar.Append(fileMenu, '&File')
+        menubar.Append(editMenu, '&Edit')
+        menubar.Append(viewMenu, '&View')
+        menubar.Append(formatMenu, '&Format')
+
         self.SetMenuBar(menubar)
         self.statusbar = CustomStatusBar(self)
         self.SetStatusBar(self.statusbar)
@@ -383,9 +405,9 @@ class RibbonFrame(wx.Frame):
                                   "This is a tooltip for adding Nodes")
         Settings_Group.AddSimpleButton(wx.ID_ANY, "Display", options_bmp2,
                                   "This is a tooltip for adding Valves")
-        Settings_Group.AddSimpleButton(wx.ID_ANY, "Units", options_bmp3,
+        Settings_Group.AddSimpleButton(ID_UNIT_SETTINGS, "Units", options_bmp3,
                                   "This is a tooltip for adding Compressors")
-        Settings_Group.AddSimpleButton(wx.ID_ANY, "Short-Cuts", options_bmp4,
+        Settings_Group.AddSimpleButton(ID_SHORT_CUT_SETTINGS, "Short-Cuts", options_bmp4,
                                   "This is a tooltip for adding Regulators")
         Windows_options_Group.AddToggleButton(wx.ID_ANY, "Map View", options_bmp5,
                                   "This is a tooltip for adding Loss Elements")
@@ -532,9 +554,9 @@ class RibbonFrame(wx.Frame):
         general_tools.AddSimpleButton(ID_REDO, "Redo", bmp_redo,
                                   "This is a tooltip to Redo")
 
-        element_tools.AddSimpleButton(wx.ID_ANY, "Element List", bmp_element_list,
+        element_tools.AddSimpleButton(ID_ELEMENT_LIST, "Element List", bmp_element_list,
                                    "This is a tooltip to show element list table")
-        element_tools.AddSimpleButton(wx.ID_ANY, "Element Display", bmp_element_display,
+        element_tools.AddSimpleButton(ID_ELEMENT_DISPLAY_SETTINGS, "Element Display", bmp_element_display,
                                   "This is a tooltip to change element properties")
 
         # SIZER FOR COORDINATES PANEL
@@ -613,11 +635,11 @@ class RibbonFrame(wx.Frame):
         # CONTROLS FOR PANEL 2
         Sim_Bar1.AddSimpleButton(wx.ID_ANY, "Simulation", sim_bmp1,
                                   "Create and Name a new simulation in the drawing window")
-        Sim_Bar1.AddSimpleButton(wx.ID_ANY, "Simulation Settings", sim_bmp2,
+        Sim_Bar1.AddSimpleButton(ID_SIMULATION_SETTINGS, "Simulation Settings", sim_bmp2,
                                   "Arrange settings of the chosen simulation")
         Sim_Bar1.AddSimpleButton(wx.ID_ANY, "Fluid Properties", sim_bmp3,
                                   "Choose and Edit Fluid Properties")
-        Sim_Bar1.AddSimpleButton(wx.ID_ANY, "Display Settings", sim_bmp4,
+        Sim_Bar1.AddSimpleButton(ID_SIMULATION_DISPLAY, "Display Settings", sim_bmp4,
                                   "Colour Range Selection and Labels for Design")
 
         # CONTROLS FOR PANEL 3
@@ -785,7 +807,7 @@ class RibbonFrame(wx.Frame):
                                   "E-mail us for help")
         Help_Panel_Bar2.AddSimpleButton(wx.ID_ANY, "Web Page", help_bmp6,
                                   "Our webpage")
-        Help_Panel_Bar2.AddSimpleButton(wx.ID_ANY, "About Us", help_bmp7,
+        Help_Panel_Bar2.AddSimpleButton(ID_ABOUT, "About Us", help_bmp7,
                                   "Learn About ASRAD and Pypeline")
 
         ################################################################################################################################################
@@ -805,9 +827,7 @@ class RibbonFrame(wx.Frame):
         # DRAWING FRAMEWORK AND PANEL
         self.graph = graph.Graph()
         self.drawing_canvas = DrawingPanel(panel, self.graph)
-
         self.search = TestSearchCtrl(panel)
-
 
         # RIBBON SIZERS
         s = wx.BoxSizer(wx.VERTICAL)
@@ -852,10 +872,71 @@ class RibbonFrame(wx.Frame):
         general_tools.Bind(RB.EVT_RIBBONBUTTONBAR_CLICKED, self.onUndoButtonClick, id=ID_UNDO)
         general_tools.Bind(RB.EVT_RIBBONBUTTONBAR_CLICKED, self.onRedoButtonClick, id=ID_REDO)
 
-    # FOR USE WITH FILE MENU
+        #-------------POP UP BINDINGS
+        Help_Panel_Bar2.Bind(RB.EVT_RIBBONBUTTONBAR_CLICKED, self.onAboutButtonClick, id=ID_ABOUT)
+        element_tools.Bind(RB.EVT_RIBBONBUTTONBAR_CLICKED, self.onElementListButtonClick, id=ID_ELEMENT_LIST)
+        element_tools.Bind(RB.EVT_RIBBONBUTTONBAR_CLICKED, self.onElementDisplaySettingsButtonClick, id=ID_ELEMENT_DISPLAY_SETTINGS)
+        Sim_Bar1.Bind(RB.EVT_RIBBONBUTTONBAR_CLICKED, self.onSimulationSettingsButtonClick, id=ID_SIMULATION_SETTINGS)
+        Sim_Bar1.Bind(RB.EVT_RIBBONBUTTONBAR_CLICKED, self.onSimulationDisplayButtonClick, id=ID_SIMULATION_DISPLAY)
+        Settings_Group.Bind(RB.EVT_RIBBONBUTTONBAR_CLICKED, self.onShortCutButtonClick, id=ID_SHORT_CUT_SETTINGS)
+        Settings_Group.Bind(RB.EVT_RIBBONBUTTONBAR_CLICKED, self.onUnitSettingsButtonClick, id=ID_UNIT_SETTINGS)
 
+    # FOR USE WITH FILE MENU
     def OnQuit(self, event):
         self.Close()
+
+    #---------------------- POP UP BOUND METHODS
+
+    def onAboutButtonClick(self, event):
+        # First we create and fill the info object
+        info = wx.AboutDialogInfo()
+        info.Name = "PypeLine"
+        info.Version = "1.0"
+        info.Copyright = "(C) 2015 ASRAD"
+        info.Description = wordwrap(
+            "Description of ASRAD goes here",
+            350, wx.ClientDC(self))
+        info.WebSite = ("http://www.asrad.com.tr/")
+        info.Developers = ["Oguz Yilmaz and Friends"]
+
+        info.License = wordwrap("Put license info here", 500, wx.ClientDC(self))
+
+        wx.AboutBox(info)
+
+    def onElementDisplaySettingsButtonClick(selfself, event):
+
+        chgdep = DisplaySettings.DisplaySettings(None, title='Display Settings')
+        chgdep.ShowModal()
+        chgdep.Destroy()
+
+    def onElementListButtonClick(selfself, event):
+
+        chgdep = ElementList.ElementListDialog(None, title='Element List')
+        chgdep.ShowModal()
+        chgdep.Destroy()
+
+    def onSimulationSettingsButtonClick(selfself, event):
+
+        chgdep = SimulationSettings.SimulationSettings(None, title='Element List')
+        chgdep.ShowModal()
+        chgdep.Destroy()
+
+    def onSimulationDisplayButtonClick(self, event):
+
+        chgdep = SimulationDisplay.ElementListDialog(None, title='Element List')
+        chgdep.ShowModal()
+        chgdep.Destroy()
+
+    def onShortCutButtonClick(self, event):
+
+        chgdep = ShortCuts.ShortcutEditorDemo(None)
+        chgdep.ShowModal()
+        chgdep.Destroy()
+
+    def onUnitSettingsButtonClick(self, event):
+        chgdep = UnitSettings.UnitSettingsDialog(None)
+        chgdep.ShowModal()
+        chgdep.Destroy()
 
     ##################################################################################################
     ##################################################################################################
