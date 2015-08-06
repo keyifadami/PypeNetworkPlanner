@@ -1,10 +1,3 @@
-<style>
-    li{
-        width: 1000px;
-
-
-    }
-</style>
 
 <h1> PypeNetworkPlanner</h1>
 
